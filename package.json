@@ -1,0 +1,21 @@
+{
+  "name": "mamacita",
+  "version": "0.0.1",
+  "description": "tool to manage option trading",
+  "main": "app.js",
+  "scripts": {
+    "flow": "node_modules/.bin/flow",
+    "flow-typed": "flow-typed",
+    "test": "jest"
+  },
+  "author": "DV,KM",
+  "license": "ISC",
+  "dependencies": {
+    "lodash": "^4.17.15"
+  },
+  "devDependencies": {
+    "flow": "^0.2.3",
+    "flow-typed": "*",
+    "jest": "^23.6.0"
+  }
+}
