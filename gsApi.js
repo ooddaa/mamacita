@@ -1,5 +1,9 @@
 // https://www.smashingmagazine.com/2012/11/writing-fast-memory-efficient-javascript/
 //////////////////// FUN ////////////////////
+function getLength(arr) { return arr.length }
+function onlyUnique(value, index, self) {
+    return self.indexOf(value) === index;
+}
 function compose2(fn2, fn1) {
     return function composedFn(arg) {
         return fn2(fn1(arg))
@@ -23,6 +27,8 @@ function firstElement(arr/* : array */) {
 function isNumber(val/* : any */)/* : boolean */ {
     return typeof val === 'number' && !isNaN(val) && val !== ''
 }
+function iterRows(row) { }
+function getCellValue(cell/* : Cell */) { return cell.getValue() }
 
 const composedIsNumber = composer(isNumber, firstElement)
 
@@ -57,52 +63,6 @@ class Matrix {
         this.matrix = matrix
     }
     /**
-     * Displays the matrix.
-     * 
-     * @param {Sheet} sheet 
-     * @param {number[]} range - do not use A1Notation here
-     */
-    display(sheet/* : Sheet */, range/* : number[] */) {
-        // https://developers.google.com/apps-script/reference/spreadsheet/range#
-        // https://developers.google.com/apps-script/reference/spreadsheet/range#setValues(Object)
-        // run check that range is same dimentions as our matrix
-        // sheet.getRange(row, column, numRows, numColumns) https://developers.google.com/apps-script/reference/spreadsheet/sheet#getrangerow-column-numrows-numcolumns
-        // sheet.getRange(1,2, 3, 4).getA1Notation() === B1:E3 // col,row
-        // let _range = sheet.getRange(...range).getA1Notation()
-        // if (!range.includes(":")) {
-        //     throw new Error(`Matrix.display: range must be in A1notation.\nrange: ${range}`)
-        // }
-
-        // const [topLeft, bottomRight] = range.toUpperCase().split(":")
-        // const [leftCol, rightCol] = [extractLetters(topLeft), extractLetters(bottomRight)]
-        // const rowsSupplied = extractNumbers(bottomRight)
-
-        // need to check if Z is the last column, ie now we can only work with 26 columns
-        // later I will add AA columns
-        // if (rightCol.charCodeAt(0) > 122) {
-        //     throw new Error(`Matrix.display: cannot work with columns after Z. WIP.\nrange: ${range}`)
-        // }
-        // const columnsSupplied/* : number */ = rightCol.charCodeAt(0) - leftCol.charCodeAt(0) + 1
-        // const [rows, cols] = this.dim()
-        // if (rowsSupplied !== rows && columnsSupplied !== columns) {
-        //     throw new Error(`Matrix.display: supplied range does not match matrix dimensions.
-        //     \nrange:\t\t\t${range}\nrange dimensions:\t(${rowsSupplied},${columnsSupplied})\nmatrix dimensions:\t(${this.rows},${this.columns})\nmatrix: ${JSON.stringify(this.matrix)}\n`)
-        // }
-        // console.log('all ok ')
-
-        // set values
-        sheet.getRange(...range).setValues(this.matrix)
-
-        //////////////////// FUN ////////////////////
-        function extractLetters(str/* : string */)/* : string */ {
-            return String(str.match(/[A-z]/g).join(''))
-        }
-        function extractNumbers(str/* : string */)/* : number */ {
-            return Number(str.match(/[0-9]/g).join(''))
-        }
-        //////////////////// END ////////////////////
-    }
-    /**
      * Loads the matrix from gs.
      * 
      * @param {Sheet} sheet 
@@ -131,22 +91,23 @@ class Matrix {
         }
         return true
     }
-    dim(_matrix/*? : Array[] */) {
-        let matrix = _matrix || this.matrix
-        if (!this.isMatrix(matrix)) return [0, 0] // never gonna happen though
+    dim(matrix = this.matrix/*? : Array[] */)/* : [rowNum, colNum] */ {
+        // if (!this.isMatrix(matrix)) return [0, 0] // never gonna happen though
         const rows = matrix.length
         const columns = matrix.map(getLength).filter(onlyUnique)
         if (columns.length !== 1) {
             throw new Error(`Matrix.dim: matrix must be complete, some values are missing.\nmatrix: ${JSON.stringify(matrix)}`)
         }
+        console.log(`Matrix.dim: (${rows},${columns[0]})`)
         return [rows, columns[0]]
-
-        //////////////////// FUN ////////////////////
-        function getLength(arr) { return arr.length }
-        function onlyUnique(value, index, self) {
-            return self.indexOf(value) === index;
-        }
-        //////////////////// END ////////////////////
+    }
+    dim1(matrix = this.matrix) {
+        // count rows & cols
+        // make sure it's full?
+        const rows = matrix.length
+        const cols = matrix.map(getLength)
+        console.log(`Matrix.dim: (${rows},${cols})`)
+        return [rows, cols]
     }
     /**
      * Uploads a matrix supplied by user.
@@ -155,11 +116,18 @@ class Matrix {
     addMatrix(matrix) {
         this.matrix = matrix
     }
+    getMatrix() {
+        return this.matrix
+    }
+    getValues() {
+        return this.matrix.map(row => row.getValues())
+    }
 }
 
 /**
  * @responsibility 
- * PortfolioTable (PT) is a special kind of Matrix.
+ * PriceScenarioTable (PT) is a special kind of Matrix.
+ * PT must be a Matrix + its position { range: {firstRow, firstCol, lastRow, lastCol, numRows, numCols} }
  * This class represents Kat's 'rolling bands' table (Sheet11). 
  * Its structure is:
  * 
@@ -176,12 +144,14 @@ class Matrix {
  * display.
  * 
  */
-class PortfolioTable /* extends Matrix */ {
-    constructor(table/* : Array[] */, sheet/* : Sheet */, firstRow = 1/* : number */, fisrtCol = 1/* : number */) {
-        this.table = table
+class PriceScenarioTable /* extends Matrix */ {
+    constructor(table/* : Array[] */, sheet/* : Sheet */, firstRow = 1/* : number */, firstCol = 1/* : number */) {
+        this.table = this.wrapTableInRows(table)
+        this.tableWithCells = undefined
         this.sheet = sheet
         this.firstRow = firstRow
-        this.fisrtCol = fisrtCol
+        this.firstCol = firstCol
+        this.tableRange = this.getDisplayedTableRange()
     }
     /**
      * Returns first three rows
@@ -193,17 +163,25 @@ class PortfolioTable /* extends Matrix */ {
     getStrikes(table = this.table) {
         return table.slice(3, table.length).map(firstElement)
     }
-    addColumn() { }
-    removeColumn() { }
-    display(sheet = this.sheet) {
+    getDisplayedTableRange(sheet = this.sheet) {
+        const [lastRow, lastCol] = [sheet.getLastRow(), sheet.getLastColumn()]
+        const [numRows, numCols] = [lastRow - this.firstRow + 1, lastCol - this.firstCol + 1]
+        return {
+            firstRow: this.firstRow,
+            firstCol: this.firstCol,
+            lastRow,
+            lastCol,
+            numRows,
+            numCols
+        }
+    }
+    display(sheet = this.sheet, firstRow = this.firstRow, firstCol = this.firstCol) {
         const matrix = new Matrix(this.table)
         const [numRows, numCols] = matrix.dim()
-        // getRange(row, column, numRows, numColumns)
-        // [row, col, numRows, numColumns]
-        // https://developers.google.com/apps-script/reference/spreadsheet/sheet#getrangerow-column-numrows-numcolumns
-        const range = [this.fisrtCol, this.firstRow, numRows, numCols]
-        // console.log(range)
-        matrix.display(sheet, range)
+        const matrixToDisplay = matrix.getMatrix().map(getCellValue)
+        const range = [firstRow, firstCol, numRows, numCols]
+        console.log('PriceScenarioTable.display range: ', range)
+        sheet.getRange(...range).setValues(matrix.getValues())
     }
     loadStrikes(range = [4, 1, 30, 1], sheet = this.sheet)/* : number[] */ {
         const strikes/* : [number[]] */ = sheet.getRange(...range).getValues().filter(composedIsNumber)
@@ -214,20 +192,34 @@ class PortfolioTable /* extends Matrix */ {
     /**
      * Loads existing table
      */
-    loadTable(firstRow = 1, firstCol = 1, sheet = this.sheet) {
-        // find lastRow and rightmostRow
-        // https://developers.google.com/apps-script/reference/spreadsheet/sheet#getlastrow
-        const lastRow = sheet.getLastRow()
-
-        // https://developers.google.com/apps-script/reference/spreadsheet/sheet#getlastcolumn
-        const lastColumn = sheet.getLastColumn()
-        const lastCell = sheet.getRange(lastRow, lastColumn)
-        const [numRows, numCols] = [lastRow - firstRow + 1, lastColumn - firstCol + 1]
+    loadWholeTable(sheet = this.sheet) {
+        const { firstRow, firstCol, numRows, numCols } = this.getDisplayedTableRange(sheet)
+        console.log('loadWholeTable firstRow, firstCol, numRows, numCols: ', firstRow, firstCol, numRows, numCols)
         const range = sheet.getRange(firstRow, firstCol, numRows, numCols)
-        console.log('loadTable range: ', JSON.stringify(range.getA1Notation()))
+        console.log('loadWholeTable range: ', JSON.stringify(range.getA1Notation()))
         const table = range.getValues()
-        console.log('loadTable table: ', JSON.stringify(table))
-        this.table = table
+        console.log('loadWholeTable table: ', JSON.stringify(table))
+        this.table = this.wrapTableInRows(table)
+    }
+    wrapTableInCell(table = this.table, firstRow = 1, firstCol = 1) {
+        const tableAsCells = table.map((row, i) => {
+            return row.map((cell, j) => {
+                return new Cell(firstRow + i, firstCol + j, cell, null)
+            })
+        })
+        console.log('wrapTableInCell tableAsCells: ', JSON.stringify(tableAsCells))
+        return tableAsCells
+    }
+    wrapTableInRows(table = this.table, firstRow = 1, firstCol = 1) {
+        const tableAsRows = table.map((row, i) => {
+            const currentRow = firstRow + i
+            const newRow = row.map((cell, j) => {
+                return new Cell(currentRow, firstCol + j, cell, null)
+            })
+            return new Row(newRow, currentRow, firstCol, firstCol + row.length)
+        })
+        console.log('wrapTableInRows tableAsRows: ', JSON.stringify(tableAsRows))
+        return tableAsRows
     }
 }
 
@@ -251,13 +243,51 @@ class Cell {
         return this.value
     }
 }
+
+/**
+ * @responsibility
+ * Represents rows of cells in gs.
+ */
+class Row {
+    constructor(row/* : Cell[] */, rowNum/* :number */, firstCol/* :number */, lastCol/* :number */, ) {
+        this.row = row
+        this.rowNum = rowNum
+        this.firstCol = firstCol
+        this.lastCol = lastCol
+        this.range = null
+    }
+
+    getRange()/* : Object */ {
+        return {
+            firstRow: this.rowNum,
+            firstCol: this.firstCol,
+            lastRow: this.rowNum,
+            lastCol: this.lastCol,
+            numRows: 1,
+            // numCols: this.lastCol - this.firstCol + 1
+            numCols: this.row.length
+        }
+    }
+    getValue()/*: Cell[] */ {
+        return this.row
+    }
+    getValues()/*: any[] */ {
+        return this.row.map(getCellValue)
+    }
+    getLength()/*: number */ {
+        return this.row.length
+    }
+    get length() {
+        return this.row.length
+    }
+}
 const table = [
     ['DESCRIPTION', 'PL', 'positionX'],
     ['STRIKE', '', 'posX_strike'],
     ['PREMIUM', '', 'posX_prem_at_exp'],
     ['undPrice', '', 'earned_premium'],
 ]
-// const test = new PortfolioTable(table, 1, 1)
+// const test = new PriceScenarioTable(table, 1, 1)
 // test.display()
 /*
 function testMatrix() {
