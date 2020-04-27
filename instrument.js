@@ -55,6 +55,7 @@ class Call extends Option {
     constructor(und/* : Instrument */, strike/* : number */, exp/* : Date */) {
         super('C', und, strike, exp)
     }
+
 }
 
 /**

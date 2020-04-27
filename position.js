@@ -27,7 +27,12 @@ class Position {
         return this.calculateCurrentPL()
     }
 
-    calculateCurrentPL(style = 'perContract' /* or 'totalCash' */) {
+    /**
+     * @todo put PL calculations into Trade.getPL(currMktPrice, style) { }
+     * @param {*} currMktPrc 
+     * @param {*} style 
+     */
+    calculateCurrentPL(curMktPrc, style = 'totalCash') {
         const openingContracts = this.openingTrade ? this.openingTrade.contracts : 1 // 1 is min anyways
         const closingContracts = this.closingTrade ? this.closingTrade.contracts : 1
         const openingPremium = this.openingTrade && this.openingTrade.getPremium()
@@ -38,13 +43,18 @@ class Position {
         // give out total cash or PL per contract? Per contract is default
         const ocfactor = style === 'totalCash' ? openingContracts * 100 : openingContracts
         const ccfactor = style === 'totalCash' ? closingContracts * 100 : closingContracts
-        console.log(`name: ${this.openingTrade.getName()}\nopeningPremium: ${openingPremium}\nopeningCommission: ${openingCommission}\nopeningContracts: ${openingContracts}\nclosingPremium: ${closingPremium}\nclosingCommission: ${closingCommission}\nclosingContracts: ${closingContracts}`)
+        // console.log(`name: ${this.openingTrade.getName()}\nopeningPremium: ${openingPremium}\nopeningCommission: ${openingCommission}\nopeningContracts: ${openingContracts}\nclosingPremium: ${closingPremium}\nclosingCommission: ${closingCommission}\nclosingContracts: ${closingContracts}`)
         if (isNaN(openingPremium) || isNaN(openingCommission)) {
             throw new Error(`Position.calculateCurrentPL: isNaN(openingPremium) || isNaN(openingCommission).\nname: ${this.openingTrade.getName()}\nopeningPremium: ${openingPremium}\nopeningCommission: ${openingCommission}`)
         }
+
+
         if (isNaN(closingPremium) || isNaN(closingCommission)) {
-            const currentResult = - openingPremium * ocfactor - openingCommission
-            return currentResult
+            // const currentResult = - openingPremium * ocfactor - openingCommission
+            // return currentResult
+            const openingTradePL = this.openingTrade.getCurrentPL(curMktPrc, style)
+            // console.log('Position.calculateCurrentPL openingTradePL: ', openingTradePL)
+            return openingTradePL
         }
         const finalResult = - (openingPremium + closingPremium) * ocfactor - (openingCommission + closingCommission) * ccfactor
         return finalResult

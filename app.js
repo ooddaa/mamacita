@@ -108,5 +108,25 @@ const work_27c = new Call(work, 27, apr24),
 // console.log(work_27c, work_27p, work_27_5p)
 const work_27c_sto = new STO(work_27c, null, 1, new Premium(42)/* , new Commission() */)
 const w = new Position(work_27c_sto)
-console.log(w)
-console.log(w.calculateCurrentPL('totalCash'))
+// console.log(w)
+// console.log(w.calculateCurrentPL(28, 'totalCash'))
+const prices = [25, 26, 26.5, 26.7, 26.75,
+    26.77,
+    26.8,
+    27,
+    27.2,
+    27.3,
+    27.5,
+    28,
+    29,
+    30,
+    31,
+    31.1,
+    31.19,
+    31.2,
+    31.5,
+    32,
+    33,
+    34]
+
+prices.forEach(price => console.log(`price: ${price}\tPL: ${w.calculateCurrentPL(price).toFixed(0)}`))

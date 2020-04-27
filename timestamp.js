@@ -170,10 +170,10 @@ class Timestamp {
         //////////////////// END ////////////////////
     }
     toString(style) {
-        console.log('Timestamp.toString()')
+        // console.log('Timestamp.toString()')
         if (style === 'option_cs') {
-            console.log('Timestamp.toString() style === option_cs')
-            console.log(this.date.data) // 2020-04-24T23:00:00.000Z
+            // console.log('Timestamp.toString() style === option_cs')
+            // console.log(this.date.data) // 2020-04-24T23:00:00.000Z
             let year = this.date.data.getFullYear() - 2000
             let month = this.date.data.getMonth() + 1
             let day = this.date.data.getDate() - 1
