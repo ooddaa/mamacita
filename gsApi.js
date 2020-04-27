@@ -29,6 +29,7 @@ function isNumber(val/* : any */)/* : boolean */ {
 }
 function iterRows(row) { }
 function getCellValue(cell/* : Cell */) { return cell.getValue() }
+function getFirstColValueFromRow(row/* : Row */) { return row.getValues()[0] }
 
 const composedIsNumber = composer(isNumber, firstElement)
 
@@ -128,24 +129,36 @@ class Matrix {
  * @responsibility 
  * PriceScenarioTable (PT) is a special kind of Matrix.
  * PT must be a Matrix + its position { range: {firstRow, firstCol, lastRow, lastCol, numRows, numCols} }
- * This class represents Kat's 'rolling bands' table (Sheet11). 
- * Its structure is:
- * 
- *      col1        colX            colLast
- * row1 DESCRIPTION positionX       PL
- * row2 STRIKE      posX_strike
- * row3 PREMIUM     posX_prem_at_exp
- * rowX undPrice    earned_premium
- * 
+ * This class represents Kat's PriceScenario tables.
  * It compiles the matrix, does all the calculations, ranges etc 
  * and uses Matrix to display. 
+ * The structure fixed as:
+ * 
+ * 1
+ * 2
+ * 3
+ * 4
+ * 5
+ * 6
+ * 7    INCLUDE IN PL           TRUE/FALSE
+ * 8    DESCRIPTION     PL      positionX
+ * 9    STRIKE                  posX_strike
+ * 10   PREMIUM                 posX_premium_at_exp
+ * 11   undPrice                posX_earned_premium
+ * 
+ * HEADER = rows 7 - 10 
+ * 
  * 
  * Workflow. Read existing PT -> add to it/edit it -> run all calculations ->
  * display.
  * 
  */
+
+const HEADER = [7, 10]
+const STRIKES = table => [10, table.length]
+
 class PriceScenarioTable /* extends Matrix */ {
-    constructor(table/* : Array[] */, sheet/* : Sheet */, firstRow = 1/* : number */, firstCol = 1/* : number */) {
+    constructor(table/* : Array[] */, sheet/* : Sheet */, firstRow = 7/* : number */, firstCol = 1/* : number */) {
         this.table = this.wrapTableInRows(table)
         this.tableWithCells = undefined
         this.sheet = sheet
@@ -157,22 +170,32 @@ class PriceScenarioTable /* extends Matrix */ {
      * Returns first three rows
      * @param {*} table 
      */
-    getHeader(table = this.table) {
-        return table.slice(0, 3)
+    getHeader(table = this.table)/* : part of table */ {
+        return table.slice(...HEADER)
     }
     getStrikes(table = this.table) {
-        return table.slice(3, table.length).map(firstElement)
+        return table.slice(...STRIKES(table)).map(getFirstCellValueFromRow)
+        /* 
+        {"row":[
+            {"row":12,"column":1,"value":12,"info":null},
+            {"row":12,"column":2,"value":"","info":null},
+            {"row":12,"column":3,"value":"","info":null}
+        ],"rowNum":12,"firstCol":1,"lastCol":4,"range":null}
+        */
     }
     getDisplayedTableRange(sheet = this.sheet) {
+        const [firstRow, firstCol] = [this.firstRow, this.firstCol]
         const [lastRow, lastCol] = [sheet.getLastRow(), sheet.getLastColumn()]
         const [numRows, numCols] = [lastRow - this.firstRow + 1, lastCol - this.firstCol + 1]
+
         return {
-            firstRow: this.firstRow,
-            firstCol: this.firstCol,
+            range: [firstRow, firstCol, numRows, numCols],
+            firstRow,
+            firstCol,
             lastRow,
             lastCol,
             numRows,
-            numCols
+            numCols,
         }
     }
     display(sheet = this.sheet, firstRow = this.firstRow, firstCol = this.firstCol) {
@@ -183,7 +206,8 @@ class PriceScenarioTable /* extends Matrix */ {
         console.log('PriceScenarioTable.display range: ', range)
         sheet.getRange(...range).setValues(matrix.getValues())
     }
-    loadStrikes(range = [4, 1, 30, 1], sheet = this.sheet)/* : number[] */ {
+    loadStrikes(_range, sheet = this.sheet)/* : number[] */ {
+        const range = _range || STRIKES(table)
         const strikes/* : [number[]] */ = sheet.getRange(...range).getValues().filter(composedIsNumber)
         const flatStrikes/* : number[] */ = strikes.map(firstElement)
         console.log('loadStrikes flatStrikes: ', flatStrikes)
@@ -220,6 +244,13 @@ class PriceScenarioTable /* extends Matrix */ {
         })
         console.log('wrapTableInRows tableAsRows: ', JSON.stringify(tableAsRows))
         return tableAsRows
+    }
+    calculatePL() {
+        this.loadWholeTable()
+        const headers = this.getHeader()
+        console.log('PriceScenarioTable calculatePL headers: ', JSON.stringify(headers))
+        const strikes = this.getStrikes()
+        console.log('PriceScenarioTable calculatePL strikes: ', JSON.stringify(strikes))
     }
 }
 
@@ -281,11 +312,23 @@ class Row {
         return this.row.length
     }
 }
-const table = [
-    ['DESCRIPTION', 'PL', 'positionX'],
-    ['STRIKE', '', 'posX_strike'],
-    ['PREMIUM', '', 'posX_prem_at_exp'],
-    ['undPrice', '', 'earned_premium'],
+const { Stock, Put, Call } = require('./instrument')
+const { Timestamp } = require('./timestamp')
+const work = new Stock('WORK', 25)
+const apr24 = new Timestamp("Apr24'20")
+const work_27c = new Call(work, 27, apr24),
+    work_27p = new Put(work, 27, apr24),
+    work_27_5p = new Put(work, 27.5, apr24)
+console.log(work_27c)
+const tbl = [
+    ['INCLUDE IN PL', '', true, true, true],
+    ['DESCRIPTION', 'PL', '-27c', '-27p', '-27.5p'],
+    ['STRIKE', '', 27, 27, 27.5],
+    ['PREMIUM', '', 42, 74, 101],
+    [25, '', '', '', ''],
+    [26, '', '', '', ''],
+    [26.5, '', '', '', ''],
+    [26.7, '', '', '', ''],
 ]
 // const test = new PriceScenarioTable(table, 1, 1)
 // test.display()

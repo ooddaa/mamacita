@@ -16,7 +16,7 @@ class Instrument {
  */
 class Stock extends Instrument {
     constructor(ticker/* : string */, price/* : number */) {
-        super(ticker)
+        super(String(ticker))
         this.price = price          // price at the moment of trade
         this.currentMktPrc = null
     }

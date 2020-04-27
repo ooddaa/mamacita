@@ -8,6 +8,9 @@ class Premium {
     constructor(premium/* : number */) {
         this.premium = premium
     }
+    toString() {
+        return String(this.premium)
+    }
 }
 
 /**
@@ -16,6 +19,9 @@ class Premium {
 class Commission {
     constructor(commission/* : number */) {
         this.commission = commission
+    }
+    toString() {
+        return String(this.commission)
     }
 }
 
@@ -27,8 +33,8 @@ class Trade {
         this.instrument = instrument
         this.date = date
         this.contracts = contracts
-        this.premium = premium
-        this.commission = commission
+        this.premium = premium || 0
+        this.commission = commission || 0
         this.tradeType = tradeType
     }
     getPremium() {
@@ -36,6 +42,9 @@ class Trade {
     }
     getCommission() {
         return this.commission
+    }
+    getName() {
+        return this.instrument.getName()
     }
 }
 

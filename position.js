@@ -20,23 +20,34 @@ class Position {
     /**
      * @todo PL can be calculated if Position is closed
      */
-    calculateFinalProfitLoss() {
-        if (!this.open) {
-            return 'this position is still open, use calculateCurrentProfitLoss'
+    calculateFinalPL() {
+        if (this.open) {
+            return 'this position is still open, use calculateCurrentPL'
         }
-        return this.calculateCurrentProfitLoss()
+        return this.calculateCurrentPL()
     }
 
-    calculateCurrentProfitLoss() {
+    calculateCurrentPL(style = 'perContract' /* or 'totalCash' */) {
+        const openingContracts = this.openingTrade ? this.openingTrade.contracts : 1 // 1 is min anyways
+        const closingContracts = this.closingTrade ? this.closingTrade.contracts : 1
         const openingPremium = this.openingTrade && this.openingTrade.getPremium()
         const openingCommission = this.openingTrade && this.openingTrade.getCommission()
         const closingPremium = this.closingTrade && this.closingTrade.getPremium()
         const closingCommission = this.closingTrade && this.closingTrade.getCommission()
-        if (isNaN(openingPremium) || isNaN(openingCommission) || isNaN(closingPremium) || isNaN(closingCommission)) {
-            return 'WIP'
+
+        // give out total cash or PL per contract? Per contract is default
+        const ocfactor = style === 'totalCash' ? openingContracts * 100 : openingContracts
+        const ccfactor = style === 'totalCash' ? closingContracts * 100 : closingContracts
+        console.log(`name: ${this.openingTrade.getName()}\nopeningPremium: ${openingPremium}\nopeningCommission: ${openingCommission}\nopeningContracts: ${openingContracts}\nclosingPremium: ${closingPremium}\nclosingCommission: ${closingCommission}\nclosingContracts: ${closingContracts}`)
+        if (isNaN(openingPremium) || isNaN(openingCommission)) {
+            throw new Error(`Position.calculateCurrentPL: isNaN(openingPremium) || isNaN(openingCommission).\nname: ${this.openingTrade.getName()}\nopeningPremium: ${openingPremium}\nopeningCommission: ${openingCommission}`)
         }
-        const result = - (openingPremium + closingPremium) * 100 - (openingCommission + closingCommission)
-        return result
+        if (isNaN(closingPremium) || isNaN(closingCommission)) {
+            const currentResult = - openingPremium * ocfactor - openingCommission
+            return currentResult
+        }
+        const finalResult = - (openingPremium + closingPremium) * ocfactor - (openingCommission + closingCommission) * ccfactor
+        return finalResult
     }
 }
 

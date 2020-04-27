@@ -79,23 +79,34 @@ const { Timestamp } = require('./timestamp')
 // Underlying	Underlying price	Date for the entry	Time for the entry	Type of the Entry	Strategy	Call/Put	                Premium	Commission
 // WORK	        26.93	            22/04/2020	        12:16:44	        STO	                Call	    -1 WORK Apr24'20 26.5C ITM	-1.05	0.25
 
-const work_call = new Call(new Stock('WORK', 26.93), 26.5, '200424')
-const work_sto = new STO(work_call, new Date(2020, 3, 22, 13, 16, 44 /* '22/04/2020', '12:16:44' */), 1, new Premium(-1.05), new Commission(0.25))
-const work = new Position(work_sto)
-// console.log(work)
-const work_pl = work.calculateCurrentProfitLoss()
-console.log(work_pl)
+// const work_call = new Call(new Stock('WORK', 26.93), 26.5, '200424')
+// const work_sto = new STO(work_call, new Date(2020, 3, 22, 13, 16, 44 /* '22/04/2020', '12:16:44' */), 1, new Premium(-1.05), new Commission(0.25))
+// const work = new Position(work_sto)
+// // console.log(work)
+// const work_pl = work.calculateCurrentPL()
+// console.log(work_pl)
 
-// AMD	55.34	15/04/2020	20:04:11	STO	Put	-1  AMD Apr24'20 54P     OTM	        -1.64	1.58
-// AMD	57.08	17/04/2020	15:41:56	BTC	        AMD Apr24'20 54P     ITM	66.33	0.95	1.09
+// // AMD	55.34	15/04/2020	20:04:11	STO	Put	-1  AMD Apr24'20 54P     OTM	        -1.64	1.58
+// // AMD	57.08	17/04/2020	15:41:56	BTC	        AMD Apr24'20 54P     ITM	66.33	0.95	1.09
 
-const amd_put = new Put(new Stock('AMD', 55.34), 54, new Timestamp("Apr24'20"))
-const amd_sto = new STO(amd_put, new Timestamp("15/04/2020", "20:04:11"), 1, -1.64, 1.58, "AMD	55.34	15/04/2020	20:04:11	STO	Put	-1  AMD Apr24'20 54P     OTM	        -1.64	1.58")
-const amd_btc = new BTC(amd_put, new Timestamp("17/04/2020", "15:41:56"), 1, 0.95, 1.09, "AMD	57.08	17/04/2020	15:41:56	BTC	        AMD Apr24'20 54P     ITM	66.33	0.95	1.09")
-const amd = new Position(amd_sto, amd_btc)
-const amd_pl1 = amd.calculateFinalProfitLoss()
-const amd_pl2 = amd.calculateCurrentProfitLoss()
-console.log(amd_pl1 == 'this position is still open, use calculateCurrentProfitLoss')
-console.log(amd_pl2)
-console.log(amd_pl2 == 66.33)
-// console.log(amd)
+// const amd_put = new Put(new Stock('AMD', 55.34), 54, new Timestamp("Apr24'20"))
+// const amd_sto = new STO(amd_put, new Timestamp("15/04/2020", "20:04:11"), 1, -1.64, 1.58, "AMD	55.34	15/04/2020	20:04:11	STO	Put	-1  AMD Apr24'20 54P     OTM	        -1.64	1.58")
+// const amd_btc = new BTC(amd_put, new Timestamp("17/04/2020", "15:41:56"), 1, 0.95, 1.09, "AMD	57.08	17/04/2020	15:41:56	BTC	        AMD Apr24'20 54P     ITM	66.33	0.95	1.09")
+// const amd = new Position(amd_sto, amd_btc)
+// const amd_pl1 = amd.calculateFinalPL()
+// const amd_pl2 = amd.calculateCurrentPL()
+// console.log(amd_pl1 == 'this position is still open, use calculateCurrentPL')
+// console.log(amd_pl2)
+// console.log(amd_pl2 == 66.33)
+// // console.log(amd)
+
+const work = new Stock('WORK', 25)
+const apr24 = new Timestamp("Apr24'20")
+const work_27c = new Call(work, 27, apr24),
+    work_27p = new Put(work, 27, apr24),
+    work_27_5p = new Put(work, 27.5, apr24)
+// console.log(work_27c, work_27p, work_27_5p)
+const work_27c_sto = new STO(work_27c, null, 1, new Premium(42)/* , new Commission() */)
+const w = new Position(work_27c_sto)
+console.log(w)
+console.log(w.calculateCurrentPL('totalCash'))
