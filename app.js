@@ -102,14 +102,10 @@ const { Timestamp } = require('./timestamp')
 
 const work = new Stock('WORK', 25)
 const apr24 = new Timestamp("Apr24'20")
-const work_27c = new Call(work, 27, apr24),
-    work_27p = new Put(work, 27, apr24),
-    work_27_5p = new Put(work, 27.5, apr24)
-// console.log(work_27c, work_27p, work_27_5p)
-const work_27c_sto = new STO(work_27c, null, 1, new Premium(42)/* , new Commission() */)
-const w = new Position(work_27c_sto)
-// console.log(w)
-// console.log(w.calculateCurrentPL(28, 'totalCash'))
+const work_27c = new STO(new Call(work, 27, new Timestamp("Apr24'20")), null, 1, new Premium(42)/* , new Commission() */)
+const work_27p = new STO(new Put(work, 27, new Timestamp("Apr24'20")), null, 1, new Premium(74)/* , new Commission() */)
+const work_27_5p = new STO(new Put(work, 27.5, new Timestamp("Apr24'20")), null, 1, new Premium(101)/* , new Commission() */)
+
 const prices = [25, 26, 26.5, 26.7, 26.75,
     26.77,
     26.8,
@@ -129,4 +125,5 @@ const prices = [25, 26, 26.5, 26.7, 26.75,
     33,
     34]
 
-prices.forEach(price => console.log(`price: ${price}\tPL: ${w.calculateCurrentPL(price).toFixed(0)}`))
+
+prices.forEach(price => console.log(`price: ${price}\tPL: ${work_27_5p.getCurrentPL(price).toFixed(0)}`))

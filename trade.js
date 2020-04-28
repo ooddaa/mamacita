@@ -72,16 +72,34 @@ class STO extends Trade {
         if (!this.instrument || isNaN(this.instrument.strike)) {
             throw new Error(`STO.getCurrentPL: cannot obtain this.instrument.strike.\nthis: ${JSON.stringify(this)}`)
         }
-        if (curMktPrc <= this.instrument.strike) {
-            const result = this.getPremium() - this.getCommission()
-            return result
-        } else {
-            // this is how Kat thinks - if call is exercised, she is assigned 
-            // stocks at strike * 100 - this is how much cash she needs to spend (aka exposure)
-            // she's losing (strike - curMktPrc) * 100
-            const result = (this.instrument.strike - curMktPrc) * 100 + this.getPremium() - this.getCommission()
-            return result
+        if (!this.instrument || !(['C', 'P'].includes(this.instrument.type))) {
+            throw new Error(`STO.getCurrentPL: cannot obtain this.instrument.type.\nthis: ${JSON.stringify(this)}`)
         }
+        // for calls
+        if (this.instrument.type === 'C') {
+            if (curMktPrc <= this.instrument.strike) {
+                const result = this.getPremium() - this.getCommission()
+                return result
+            } else {
+                // this is how Kat thinks - if call is exercised, she is assigned 
+                // stocks at strike * 100 - this is how much cash she needs to spend (aka exposure)
+                // she's losing (strike - curMktPrc) * 100
+                const result = (this.instrument.strike - curMktPrc) * 100 + this.getPremium() - this.getCommission()
+                return result
+            }
+        } else if (this.instrument.type === 'P') {
+            // curMktPrc >= strike, premium, (curMktPrc-strike)*100+premium
+            if (curMktPrc >= this.instrument.strike) {
+                const result = this.getPremium() - this.getCommission()
+                return result
+            } else {
+                const result = (curMktPrc - this.instrument.strike) * 100 + this.getPremium() - this.getCommission()
+                return result
+            }
+        } else {
+            throw new Error(`STO.getCurrentPL: this.instrument.type was neither C nor P.\nthis: ${JSON.stringify(this)}`)
+        }
+
     }
 }
 /* aka unshort */

@@ -29,7 +29,8 @@ function isNumber(val/* : any */)/* : boolean */ {
 }
 function iterRows(row) { }
 function getCellValue(cell/* : Cell */) { return cell.getValue() }
-function getFirstColValueFromRow(row/* : Row */) { return row.getValues()[0] }
+function getRowValues(row/* : Row */) { return row.getValues() }
+function getFirstColValueFromRow(row/* : Row */) { return firstElement(getRowValues(row)) }
 
 const composedIsNumber = composer(isNumber, firstElement)
 
@@ -102,14 +103,6 @@ class Matrix {
         console.log(`Matrix.dim: (${rows},${columns[0]})`)
         return [rows, columns[0]]
     }
-    dim1(matrix = this.matrix) {
-        // count rows & cols
-        // make sure it's full?
-        const rows = matrix.length
-        const cols = matrix.map(getLength)
-        console.log(`Matrix.dim: (${rows},${cols})`)
-        return [rows, cols]
-    }
     /**
      * Uploads a matrix supplied by user.
      * @param {*} matrix 
@@ -154,11 +147,11 @@ class Matrix {
  * 
  */
 
-const HEADER = [7, 10]
-const STRIKES = table => [10, table.length]
+const HEADER = [0, 4] // as we are placing our PST on 7th row and start counting from there
+const STRIKES = table => [4, table.length]
 
 class PriceScenarioTable /* extends Matrix */ {
-    constructor(table/* : Array[] */, sheet/* : Sheet */, firstRow = 7/* : number */, firstCol = 1/* : number */) {
+    constructor(table = [[]]/* : Array[] */, sheet/* : Sheet */, firstRow = 7/* : number */, firstCol = 1/* : number */) {
         this.table = this.wrapTableInRows(table)
         this.tableWithCells = undefined
         this.sheet = sheet
@@ -174,7 +167,7 @@ class PriceScenarioTable /* extends Matrix */ {
         return table.slice(...HEADER)
     }
     getStrikes(table = this.table) {
-        return table.slice(...STRIKES(table)).map(getFirstCellValueFromRow)
+        return table.slice(...STRIKES(table)).map(getFirstColValueFromRow)
         /* 
         {"row":[
             {"row":12,"column":1,"value":12,"info":null},
@@ -206,35 +199,21 @@ class PriceScenarioTable /* extends Matrix */ {
         console.log('PriceScenarioTable.display range: ', range)
         sheet.getRange(...range).setValues(matrix.getValues())
     }
-    loadStrikes(_range, sheet = this.sheet)/* : number[] */ {
-        const range = _range || STRIKES(table)
-        const strikes/* : [number[]] */ = sheet.getRange(...range).getValues().filter(composedIsNumber)
-        const flatStrikes/* : number[] */ = strikes.map(firstElement)
-        console.log('loadStrikes flatStrikes: ', flatStrikes)
-        return flatStrikes
-    }
+
     /**
-     * Loads existing table
+     * Loads existing PriceScenarioTable
      */
-    loadWholeTable(sheet = this.sheet) {
+    load(sheet = this.sheet) {
+        // find the PST
         const { firstRow, firstCol, numRows, numCols } = this.getDisplayedTableRange(sheet)
-        console.log('loadWholeTable firstRow, firstCol, numRows, numCols: ', firstRow, firstCol, numRows, numCols)
+        console.log('load firstRow, firstCol, numRows, numCols: ', firstRow, firstCol, numRows, numCols)
         const range = sheet.getRange(firstRow, firstCol, numRows, numCols)
-        console.log('loadWholeTable range: ', JSON.stringify(range.getA1Notation()))
+        console.log('load range: ', JSON.stringify(range.getA1Notation()))
         const table = range.getValues()
-        console.log('loadWholeTable table: ', JSON.stringify(table))
+        console.log('load table: ', JSON.stringify(table))
         this.table = this.wrapTableInRows(table)
     }
-    wrapTableInCell(table = this.table, firstRow = 1, firstCol = 1) {
-        const tableAsCells = table.map((row, i) => {
-            return row.map((cell, j) => {
-                return new Cell(firstRow + i, firstCol + j, cell, null)
-            })
-        })
-        console.log('wrapTableInCell tableAsCells: ', JSON.stringify(tableAsCells))
-        return tableAsCells
-    }
-    wrapTableInRows(table = this.table, firstRow = 1, firstCol = 1) {
+    wrapTableInRows(table = this.table, firstRow = this.firstRow, firstCol = this.firstCol) {
         const tableAsRows = table.map((row, i) => {
             const currentRow = firstRow + i
             const newRow = row.map((cell, j) => {
@@ -246,11 +225,16 @@ class PriceScenarioTable /* extends Matrix */ {
         return tableAsRows
     }
     calculatePL() {
-        this.loadWholeTable()
+        this.load()
         const headers = this.getHeader()
         console.log('PriceScenarioTable calculatePL headers: ', JSON.stringify(headers))
-        const strikes = this.getStrikes()
+        const strikes/* : number[] */ = this.getStrikes()
         console.log('PriceScenarioTable calculatePL strikes: ', JSON.stringify(strikes))
+
+        // make list or trades
+        // filter row starting with 'DESCRIPTION'
+        const trades = headers.filter(row => getFirstColValueFromRow(row) === 'DESCRIPTION')
+        console.log('PriceScenarioTable calculatePL trades: ', JSON.stringify(trades))
     }
 }
 
@@ -312,8 +296,11 @@ class Row {
         return this.row.length
     }
 }
+
 const { Stock, Put, Call } = require('./instrument')
 const { Timestamp } = require('./timestamp')
+const { STO } = require('./trade')
+
 const work = new Stock('WORK', 25)
 const apr24 = new Timestamp("Apr24'20")
 const work_27c = new Call(work, 27, apr24),
@@ -330,26 +317,31 @@ const tbl = [
     [26.5, '', '', '', ''],
     [26.7, '', '', '', ''],
 ]
-// const test = new PriceScenarioTable(table, 1, 1)
-// test.display()
-/*
-function testMatrix() {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Sheet9')
-  const m = new Matrix(3,3, 'lol')
-  m.display(sheet, 'A1:C3')
-}
-*/
 
-
-// console.log(
-//     'A'.charCodeAt(0), // 65
-//     'Z'.charCodeAt(0), // 90
-//     'z'.charCodeAt(0), // 122
-//     // String.fromCharCode(64)
-// )
-// console.log(
-//     // 'A1'.match(/[A-z]/g).join('') == 'A',
-//     // 'AB1'.match(/[A-z]/g).join('') == 'AB',
-//     // 'aBC'.match(/[A-z]/g).join('') == 'aBC',
-//     Number('A12'.match(/[0-9]/g).join(''))
-// )
+// /**
+//      * @deprecated
+//      * @param {*} _range 
+//      * @param {*} sheet 
+//      */
+//     loadStrikes(_range, sheet = this.sheet)/* : number[] */ {
+//         const range = _range || STRIKES(table)
+//         const strikes/* : [number[]] */ = sheet.getRange(...range).getValues().filter(composedIsNumber)
+//         const flatStrikes/* : number[] */ = strikes.map(firstElement)
+//         console.log('loadStrikes flatStrikes: ', flatStrikes)
+//         return flatStrikes
+//     }
+// /**
+//      * @deprecated
+//      * @param {*} table 
+//      * @param {*} firstRow 
+//      * @param {*} firstCol 
+//      */
+//     wrapTableInCell(table = this.table, firstRow = this.firstRow, firstCol = this.firstCol) {
+//         const tableAsCells = table.map((row, i) => {
+//             return row.map((cell, j) => {
+//                 return new Cell(firstRow + i, firstCol + j, cell, null)
+//             })
+//         })
+//         console.log('wrapTableInCell tableAsCells: ', JSON.stringify(tableAsCells))
+//         return tableAsCells
+//     }
