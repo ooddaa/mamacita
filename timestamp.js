@@ -180,7 +180,7 @@ class Timestamp {
             const [yyyy, mm, dd] = [
                 year,
                 month < 10 ? `0${month}` : month,
-                day
+                day < 10 ? `0${day}` : day
             ].map(String)
 
             const result = [yyyy, mm, dd].join('')

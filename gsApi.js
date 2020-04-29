@@ -34,6 +34,141 @@ function getFirstColValueFromRow(row/* : Row */) { return firstElement(getRowVal
 
 const composedIsNumber = composer(isNumber, firstElement)
 
+function addTrades(header, stock, expiration)/* [header, trades] */ {
+    // always 4 rows
+    const [descrRow, strikeRow, premiumRow] = header
+    console.log('header: ', JSON.stringify(header))
+    // how many trades are there
+    const tradesNum = descrRow.row.length - 2
+    const trades = []
+    // console.log(tradesNum)
+    for (let i = 2; i < 2 + tradesNum; i++) {
+        // console.log(i)
+        // console.log(descrRow)
+        let descr/* : string */ = descrRow.row[i].value
+        let premium/* : number */ = Number(premiumRow.row[i].value)
+        let strike /* : number */ = Number(strikeRow.row[i].value)
+        let firstLetter = descr[0]
+        // console.log(firstLetter)
+        let lastLetter = descr[descr.length - 1]
+        // console.log(lastLetter)
+        let type = ''
+        if (['C', 'c', 'Call', 'call'].includes(lastLetter)) {
+            type = 'Call'
+        } else if (['P', 'p', 'Put', 'put'].includes(lastLetter)) {
+            type = 'Put'
+        } else {
+            throw new Error(`headerToTrades: cannot get instrument type. Must be 'c' or 'p'.\ndescr: ${JSON.stringify(descr)}`)
+        }
+        // console.log(type)
+        // is it STO or BTO ?
+        if (firstLetter === '-') {
+            if (type === 'Call') {
+                let trade = new STO(new Call(stock, strike, expiration), null, 1, new Premium(premium))
+                trades.push(trade)
+                descrRow.row[i].info = trade
+            } else {
+                let trade = new STO(new Put(stock, strike, expiration), null, 1, new Premium(premium))
+                trades.push(trade)
+                descrRow.row[i].info = trade
+            }
+        } else {
+            if (type === 'Call') {
+                let trade = new BTO(new Call(stock, strike, expiration), null, 1, new Premium(premium))
+                trades.push(trade)
+                descrRow.row[i].info = trade
+            } else {
+                let trade = new BTO(new Put(stock, strike, expiration), null, 1, new Premium(premium))
+                trades.push(trade)
+                descrRow.row[i].info = trade
+            }
+        }
+    }
+    return [header, trades]
+}
+
+function updateTableWithPL(tbl) {
+    // get body portion (below header)
+    const [descr, ...rest] = tbl.slice(0, 4)
+    const body = tbl.slice(5)
+    console.log('body: ', body)
+
+    const [tag, pl, ...trades] = descr.row
+    //console.log('trades: ', trades)
+    trades.forEach(cell => {
+        const trade = cell.info
+        const column = cell.column
+
+        body.forEach(priceRow => {
+            console.log('priceRow: ', priceRow)
+            const price = getFirstColValueFromRow(priceRow)
+            const [curPrice, pl] = trade.getCurrentPL(price)
+            if (price !== curPrice) {
+                throw new Error(`updateTableWithPL: price != curPrice.\npriceRow: ${JSON.stringify(priceRow)}\ncell: ${JSON.stringify(cell)}`)
+            }
+            const correctCell = priceRow.row.filter(cell => {
+                //console.log('cell.column: ', cell.column, 'column: ', column, 'cell: ', cell)
+                return cell.column === column
+            })
+            correctCell[0].value = pl
+            // sum up
+            /*
+            priceRow:  { class: 'Row',
+row: 
+[ { class: 'Cell', row: 11, column: 1, value: 25, info: null },
+ { class: 'Cell', row: 11, column: 2, value: 0, info: null },
+ { class: 'Cell', row: 11, column: 3, value: 42, info: null },
+ { class: 'Cell', row: 11, column: 4, value: -126, info: null },
+ { class: 'Cell', row: 11, column: 5, value: -149, info: null },
+ { class: 'Cell', row: 11, column: 6, value: 100, info: null },
+ { class: 'Cell', row: 11, column: 7, value: 90, info: null },
+ { class: 'Cell', row: 11, column: 8, value: 75, info: null } ],
+rowNum: 11,
+firstCol: 1,
+lastCol: 9,
+range: null }
+*/
+            let PLsum = priceRow.row[1].value
+            // console.log('PLsum: ', PLsum)
+            //priceRow.row[1].value = 'ahaha'
+
+            if (PLsum && !isNaN(PLsum)) {
+                priceRow.row[1].value += pl
+            } else {
+                priceRow.row[1].value = pl
+            }
+
+        })
+    })
+    console.log('updateTableWithPL body: ', JSON.stringify(body))
+    //console.log('updateTableWithPL tbl: ', JSON.stringify(tbl))
+
+    return tbl
+}
+function getStockTicker(sheet, range = 'B1') {
+    const ticker = sheet.getRange(range).getValue()
+    //   console.log('getStockTicker ticker: ', ticker)
+    if (!ticker || !ticker.length) {
+        throw new Error(`getStockTicker: no valid ticker.\nrange: ${range}\nticker: ${ticker}`)
+    }
+    return ticker
+}
+function getStockMktPrice(sheet, range = 'B2') {
+    const price = sheet.getRange(range).getValue()
+    //   console.log('getStockMktPrice price: ', price)
+    if (!price) {
+        throw new Error(`getStockMktPrice: no valid price.\nrange: ${range}\nprice: ${price}`)
+    }
+    return price
+}
+function getExpiration(sheet, range = 'B3') {
+    const exp = sheet.getRange(range).getValue()
+    //   console.log('getExpiration exp: ', exp)
+    if (!exp || !exp.length) {
+        throw new Error(`getExpiration: no valid expiration.\nrange: ${range}\nexp: ${exp}`)
+    }
+    return exp
+}
 //////////////////// END ////////////////////
 
 /**
@@ -103,6 +238,14 @@ class Matrix {
         console.log(`Matrix.dim: (${rows},${columns[0]})`)
         return [rows, columns[0]]
     }
+    dim1(matrix = this.matrix) {
+        // count rows & cols
+        // make sure it's full?
+        const rows = matrix.length
+        const cols = matrix.map(getLength)
+        console.log(`Matrix.dim: (${rows},${cols})`)
+        return [rows, cols]
+    }
     /**
      * Uploads a matrix supplied by user.
      * @param {*} matrix 
@@ -147,8 +290,10 @@ class Matrix {
  * 
  */
 
-const HEADER = [0, 4] // as we are placing our PST on 7th row and start counting from there
-const STRIKES = table => [4, table.length]
+
+
+const HEADER = [0, 5] // as we are placing our PST on 7th row and start counting from there
+const BODY = table => [5, table.length]
 
 class PriceScenarioTable /* extends Matrix */ {
     constructor(table = [[]]/* : Array[] */, sheet/* : Sheet */, firstRow = 7/* : number */, firstCol = 1/* : number */) {
@@ -166,8 +311,14 @@ class PriceScenarioTable /* extends Matrix */ {
     getHeader(table = this.table)/* : part of table */ {
         return table.slice(...HEADER)
     }
-    getStrikes(table = this.table) {
-        return table.slice(...STRIKES(table)).map(getFirstColValueFromRow)
+    getBody(table = this.table)/* : part of table */ {
+        return table.slice(...BODY(table))
+    }
+    updateHeader(newHeader) {
+        this.table = newHeader.concat(this.getBody())
+    }
+    getPrices(table = this.table) {
+        return this.getBody().map(getFirstColValueFromRow)
         /* 
         {"row":[
             {"row":12,"column":1,"value":12,"info":null},
@@ -194,10 +345,12 @@ class PriceScenarioTable /* extends Matrix */ {
     display(sheet = this.sheet, firstRow = this.firstRow, firstCol = this.firstCol) {
         const matrix = new Matrix(this.table)
         const [numRows, numCols] = matrix.dim()
-        const matrixToDisplay = matrix.getMatrix().map(getCellValue)
+        //console.log('display matrix.getMatrix(): ', matrix.getMatrix())
+        const matrixToDisplay = matrix.getMatrix().map(getRowValues)
+        //console.log('display matrixToDisplay: ', matrixToDisplay)
         const range = [firstRow, firstCol, numRows, numCols]
-        console.log('PriceScenarioTable.display range: ', range)
-        sheet.getRange(...range).setValues(matrix.getValues())
+        //console.log('PriceScenarioTable.display range: ', range)
+        sheet.getRange(...range).setValues(matrixToDisplay)
     }
 
     /**
@@ -206,11 +359,11 @@ class PriceScenarioTable /* extends Matrix */ {
     load(sheet = this.sheet) {
         // find the PST
         const { firstRow, firstCol, numRows, numCols } = this.getDisplayedTableRange(sheet)
-        console.log('load firstRow, firstCol, numRows, numCols: ', firstRow, firstCol, numRows, numCols)
+        //console.log('load firstRow, firstCol, numRows, numCols: ', firstRow, firstCol, numRows, numCols)
         const range = sheet.getRange(firstRow, firstCol, numRows, numCols)
-        console.log('load range: ', JSON.stringify(range.getA1Notation()))
+        //console.log('load range: ', JSON.stringify(range.getA1Notation()))
         const table = range.getValues()
-        console.log('load table: ', JSON.stringify(table))
+        //console.log('load table: ', JSON.stringify(table))
         this.table = this.wrapTableInRows(table)
     }
     wrapTableInRows(table = this.table, firstRow = this.firstRow, firstCol = this.firstCol) {
@@ -221,21 +374,56 @@ class PriceScenarioTable /* extends Matrix */ {
             })
             return new Row(newRow, currentRow, firstCol, firstCol + row.length)
         })
-        console.log('wrapTableInRows tableAsRows: ', JSON.stringify(tableAsRows))
+        //console.log('wrapTableInRows tableAsRows: ', JSON.stringify(tableAsRows))
         return tableAsRows
     }
     calculatePL() {
         this.load()
+        //console.log(JSON.stringify(this.table))
         const headers = this.getHeader()
-        console.log('PriceScenarioTable calculatePL headers: ', JSON.stringify(headers))
-        const strikes/* : number[] */ = this.getStrikes()
-        console.log('PriceScenarioTable calculatePL strikes: ', JSON.stringify(strikes))
+        //console.log('PriceScenarioTable calculatePL headers: ', JSON.stringify(headers))
+        const body/* : number[] */ = this.getBody()
+        //console.log('PriceScenarioTable calculatePL body: ', JSON.stringify(body))
 
         // make list or trades
-        // filter row starting with 'DESCRIPTION'
-        const trades = headers.filter(row => getFirstColValueFromRow(row) === 'DESCRIPTION')
-        console.log('PriceScenarioTable calculatePL trades: ', JSON.stringify(trades))
+        const stock = new Stock(getStockTicker(this.sheet), getStockMktPrice(this.sheet))
+        const exp = new Timestamp(getExpiration(this.sheet))
+        const [newHeader, pls] = addTrades(headers, stock, exp) // [STO(blabla)...]
+        //console.log('calculatePL trades: ', JSON.stringify(trades))
+        this.updateHeader(newHeader)
+        //console.log(JSON.stringify(this.table))
+        this.table = updateTableWithPL(this.table)
     }
+}
+
+function calculatePL() {
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet()
+    const tbl1 = [
+        ['INCLUDE IN PL', '', true, true, true],
+        ['DESCRIPTION', 'PL', '-27c', '-27p', '-27.5p'],
+        ['STRIKE', '', 27, 27, 27.5],
+        ['PREMIUM', '', 42, 74, 101],
+        [25, '', '', '', ''],
+        [26, '', '', '', ''],
+        [26.5, '', '', '', ''],
+        [26.7, '', '', '', ''],
+    ]
+    const tbl = [
+        ['INCLUDE IN PL',],
+        ['DESCRIPTION', 'PL'],
+        ['STRIKE', ''],
+        ['PREMIUM', ''],
+        [25, ''],
+        [26, ''],
+        [26.5, ''],
+        [26.7, ''],
+    ]
+    const table = new PriceScenarioTable(tbl, sheet)
+
+    table.calculatePL()
+    table.display()
+
+    //console.log(JSON.stringify(table.table))
 }
 
 /**
@@ -245,6 +433,7 @@ class PriceScenarioTable /* extends Matrix */ {
  */
 class Cell {
     constructor(row/* : number */, column/* : number */, value/* : any */, info/* : string */) {
+        this.class = 'Cell'
         this.row = row
         this.column = column
         this.value = value
@@ -259,12 +448,14 @@ class Cell {
     }
 }
 
+
 /**
  * @responsibility
  * Represents rows of cells in gs.
  */
 class Row {
     constructor(row/* : Cell[] */, rowNum/* :number */, firstCol/* :number */, lastCol/* :number */, ) {
+        this.class = 'Row'
         this.row = row
         this.rowNum = rowNum
         this.firstCol = firstCol

@@ -65,7 +65,7 @@ class STO extends Trade {
             Call.strike - currMktPrc * 100 + Trade.getPremium() - Trade.getCommission()
         }
     */
-    getCurrentPL(curMktPrc, style = 'perContract' /* or 'totalCash' */) {
+    getCurrentPL(curMktPrc, style = 'perContract' /* or 'totalCash' */)/* : [price: number, pl: number] */ {
         if (!curMktPrc || isNaN(curMktPrc)) {
             throw new Error(`STO.getCurrentPL: first agrument (current market price of the underlying) must be number.\ncurMktPrc: ${JSON.stringify(curMktPrc)}`)
         }
@@ -78,28 +78,27 @@ class STO extends Trade {
         // for calls
         if (this.instrument.type === 'C') {
             if (curMktPrc <= this.instrument.strike) {
-                const result = this.getPremium() - this.getCommission()
-                return result
+                const pl = this.getPremium() - this.getCommission()
+                return [curMktPrc, pl]
             } else {
                 // this is how Kat thinks - if call is exercised, she is assigned 
                 // stocks at strike * 100 - this is how much cash she needs to spend (aka exposure)
                 // she's losing (strike - curMktPrc) * 100
-                const result = (this.instrument.strike - curMktPrc) * 100 + this.getPremium() - this.getCommission()
-                return result
+                const pl = (this.instrument.strike - curMktPrc) * 100 + this.getPremium() - this.getCommission()
+                return [curMktPrc, pl]
             }
         } else if (this.instrument.type === 'P') {
             // curMktPrc >= strike, premium, (curMktPrc-strike)*100+premium
             if (curMktPrc >= this.instrument.strike) {
-                const result = this.getPremium() - this.getCommission()
-                return result
+                const pl = this.getPremium() - this.getCommission()
+                return [curMktPrc, pl]
             } else {
-                const result = (curMktPrc - this.instrument.strike) * 100 + this.getPremium() - this.getCommission()
-                return result
+                const pl = (curMktPrc - this.instrument.strike) * 100 + this.getPremium() - this.getCommission()
+                return [curMktPrc, pl]
             }
         } else {
             throw new Error(`STO.getCurrentPL: this.instrument.type was neither C nor P.\nthis: ${JSON.stringify(this)}`)
         }
-
     }
 }
 /* aka unshort */
@@ -113,6 +112,45 @@ class BTO extends Trade {
     constructor(...args) {
         super('BTO', ...args)
     }
+
+    getCurrentPL(curMktPrc, style = 'perContract' /* or 'totalCash' */)/* : [price: number, pl: number] */ {
+        if (!curMktPrc || isNaN(curMktPrc)) {
+            throw new Error(`BTO.getCurrentPL: first agrument (current market price of the underlying) must be number.\ncurMktPrc: ${JSON.stringify(curMktPrc)}`)
+        }
+        if (!this.instrument || isNaN(this.instrument.strike)) {
+            throw new Error(`BTO.getCurrentPL: cannot obtain this.instrument.strike.\nthis: ${JSON.stringify(this)}`)
+        }
+        if (!this.instrument || !(['C', 'P'].includes(this.instrument.type))) {
+            throw new Error(`BTO.getCurrentPL: cannot obtain this.instrument.type.\nthis: ${JSON.stringify(this)}`)
+        }
+        const { strike } = this.instrument
+        const premium = this.getPremium()
+        const commission = this.getCommission()
+        // for calls
+        // dont forget, in gs -premium when Kat pays, +premium when receives, alliluia
+        // =if(curMktPrc <= strike, + premium, (curMktPrc - strike) * 100 + premium)
+        if (this.instrument.type === 'C') {
+            if (curMktPrc <= strike) {
+                const pl = premium - commission
+                return [curMktPrc, pl]
+            } else {
+                const pl = (curMktPrc - strike) * 100 + premium - commission
+                return [curMktPrc, pl]
+            }
+        } else if (this.instrument.type === 'P') {
+            // =if(curMktPrc >= strike, premium, (strike-price)*100+premium)
+            if (curMktPrc >= strike) {
+                const pl = premium - commission
+                return [curMktPrc, pl]
+            } else {
+                const pl = (strike - curMktPrc) * 100 + premium - commission
+                return [curMktPrc, pl]
+            }
+        } else {
+            throw new Error(`BTO.getCurrentPL: this.instrument.type was neither C nor P.\nthis: ${JSON.stringify(this)}`)
+        }
+    }
+
 }
 /* aka unlong */
 class BTC extends Trade {
