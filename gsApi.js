@@ -91,7 +91,7 @@ function updateTableWithPL(tbl) {
     // get body portion (below header)
     const [descr, ...rest] = tbl.slice(0, 4)
     const body = tbl.slice(5)
-    console.log('body: ', body)
+    // console.log('body: ', body)
 
     const [tag, pl, ...trades] = descr.row
     //console.log('trades: ', trades)
@@ -100,18 +100,21 @@ function updateTableWithPL(tbl) {
         const column = cell.column
 
         body.forEach(priceRow => {
-            console.log('priceRow: ', priceRow)
+
+            // console.log('priceRow: ', priceRow)
             const price = getFirstColValueFromRow(priceRow)
             const [curPrice, pl] = trade.getCurrentPL(price)
             if (price !== curPrice) {
                 throw new Error(`updateTableWithPL: price != curPrice.\npriceRow: ${JSON.stringify(priceRow)}\ncell: ${JSON.stringify(cell)}`)
             }
+            // find corresponding column 
             const correctCell = priceRow.row.filter(cell => {
                 //console.log('cell.column: ', cell.column, 'column: ', column, 'cell: ', cell)
                 return cell.column === column
             })
+            // and set pl value there
             correctCell[0].value = pl
-            // sum up
+
             /*
             priceRow:  { class: 'Row',
 row: 
@@ -128,19 +131,15 @@ firstCol: 1,
 lastCol: 9,
 range: null }
 */
-            let PLsum = priceRow.row[1].value
-            // console.log('PLsum: ', PLsum)
-            //priceRow.row[1].value = 'ahaha'
-
-            if (PLsum && !isNaN(PLsum)) {
-                priceRow.row[1].value += pl
-            } else {
-                priceRow.row[1].value = pl
-            }
 
         })
+        // update PL sum
+        body.forEach(({ row }) => {
+            const [price, PL, ...premiums] = row
+            PL.value = premiums.reduce((acc, { value }) => acc += value, 0)
+        })
     })
-    console.log('updateTableWithPL body: ', JSON.stringify(body))
+    // console.log('updateTableWithPL body: ', JSON.stringify(body))
     //console.log('updateTableWithPL tbl: ', JSON.stringify(tbl))
 
     return tbl
