@@ -36,7 +36,7 @@ const composedIsNumber = composer(isNumber, firstElement)
 
 function addTrades(header, stock, expiration)/* [header, trades] */ {
     // always 4 rows
-    const [descrRow, strikeRow, premiumRow] = header
+    const [include, descrRow, strikeRow, premiumRow] = header
     console.log('header: ', JSON.stringify(header))
     // how many trades are there
     const tradesNum = descrRow.row.length - 2
@@ -89,8 +89,14 @@ function addTrades(header, stock, expiration)/* [header, trades] */ {
 
 function updateTableWithPL(tbl) {
     // get body portion (below header)
-    const [descr, ...rest] = tbl.slice(0, 4)
-    const body = tbl.slice(5)
+    const [include, descr, ...rest] = tbl.slice(0, 5)
+    const blacklistedCols = include.row.reduce((acc, cell) => {
+        if (cell.value === false) {
+            acc.push(cell.column)
+        }
+        return acc
+    }, [])
+    const body = tbl.slice(6)
     // console.log('body: ', body)
 
     const [tag, pl, ...trades] = descr.row
@@ -132,11 +138,18 @@ lastCol: 9,
 range: null }
 */
 
+
         })
-        // update PL sum
+        // update PL sum 
         body.forEach(({ row }) => {
             const [price, PL, ...premiums] = row
-            PL.value = premiums.reduce((acc, { value }) => acc += value, 0)
+
+            PL.value = premiums.reduce((acc, { column, value }) => {
+                if (!blacklistedCols.includes(column)) {
+                    acc += value
+                }
+                return acc
+            }, 0)
         })
     })
     // console.log('updateTableWithPL body: ', JSON.stringify(body))
@@ -146,7 +159,7 @@ range: null }
 }
 function getStockTicker(sheet, range = 'B1') {
     const ticker = sheet.getRange(range).getValue()
-    //   console.log('getStockTicker ticker: ', ticker)
+    console.log('getStockTicker ticker: ', ticker)
     if (!ticker || !ticker.length) {
         throw new Error(`getStockTicker: no valid ticker.\nrange: ${range}\nticker: ${ticker}`)
     }
@@ -154,7 +167,7 @@ function getStockTicker(sheet, range = 'B1') {
 }
 function getStockMktPrice(sheet, range = 'B2') {
     const price = sheet.getRange(range).getValue()
-    //   console.log('getStockMktPrice price: ', price)
+    console.log('getStockMktPrice price: ', price)
     if (!price) {
         throw new Error(`getStockMktPrice: no valid price.\nrange: ${range}\nprice: ${price}`)
     }
@@ -162,7 +175,7 @@ function getStockMktPrice(sheet, range = 'B2') {
 }
 function getExpiration(sheet, range = 'B3') {
     const exp = sheet.getRange(range).getValue()
-    //   console.log('getExpiration exp: ', exp)
+    console.log('getExpiration exp: ', exp)
     if (!exp || !exp.length) {
         throw new Error(`getExpiration: no valid expiration.\nrange: ${range}\nexp: ${exp}`)
     }
@@ -393,36 +406,6 @@ class PriceScenarioTable /* extends Matrix */ {
         //console.log(JSON.stringify(this.table))
         this.table = updateTableWithPL(this.table)
     }
-}
-
-function calculatePL() {
-    const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet()
-    const tbl1 = [
-        ['INCLUDE IN PL', '', true, true, true],
-        ['DESCRIPTION', 'PL', '-27c', '-27p', '-27.5p'],
-        ['STRIKE', '', 27, 27, 27.5],
-        ['PREMIUM', '', 42, 74, 101],
-        [25, '', '', '', ''],
-        [26, '', '', '', ''],
-        [26.5, '', '', '', ''],
-        [26.7, '', '', '', ''],
-    ]
-    const tbl = [
-        ['INCLUDE IN PL',],
-        ['DESCRIPTION', 'PL'],
-        ['STRIKE', ''],
-        ['PREMIUM', ''],
-        [25, ''],
-        [26, ''],
-        [26.5, ''],
-        [26.7, ''],
-    ]
-    const table = new PriceScenarioTable(tbl, sheet)
-
-    table.calculatePL()
-    table.display()
-
-    //console.log(JSON.stringify(table.table))
 }
 
 /**
